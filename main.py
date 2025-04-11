@@ -13,6 +13,8 @@ import importlib
 
 from flask import Flask, render_template, request, make_response, session, jsonify, redirect, flash, url_for, abort
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
+
+from clustering.clustering_pipeline import cluster_entities
 from flask_session import Session
 
 from config import Config
@@ -22,6 +24,8 @@ from chatbot import chatbot
 from sources.gepris import org_details
 import utils
 import deduplicator
+
+import pickle
 
 logging.config.fileConfig(os.getenv('LOGGING_FILE_CONFIG', './logging.conf'))
 logger = logging.getLogger('nfdi_search_engine')
@@ -481,7 +485,11 @@ def search_results():
             t.join()                   
         
         #store the search results in the session
-        session['search-results'] = copy.deepcopy(results)        
+        session['search-results'] = copy.deepcopy(results)
+
+
+        clean_search_term = re.sub(r'\W+', '_', search_term)
+        cluster_entities(results,clean_search_term)
 
         # Chatbot - push search results to chatbot server for embeddings generation
         if (app.config['CHATBOT']['chatbot_enable']):
@@ -1092,4 +1100,8 @@ def search_term_log(report_date_range):
 #endregion
 
 if __name__ == "__main__":
+    #set env variable
+    os.putenv("SECRET_KEY","testetstsets")
+    os.putenv("ELASTIC_USERNAME","elastic")
+    os.putenv("ELASTIC_SERVER",r"https://dev.nfdi-elastic.nliwod.org/")
     app.run(host='0.0.0.0', port=5002, debug=True)
